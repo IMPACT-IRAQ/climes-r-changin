@@ -25,6 +25,9 @@ library(ggh4x)
 library(openxlsx)
 library(zoo)
 library(lubridate)
+library(forcats)
+library(RColorBrewer)
+library(leaflegend)
 # read_data ---------------------------------------------------------------
 
 # indicator list ----------------------------------------------------------
@@ -36,29 +39,46 @@ climate_data <- readRDS(file = "05_outputs/processed_indicators/climate_data.rds
   st_as_sf(crs = st_crs()) 
 
 model_data <- read.xlsx("05_outputs/model_data_output.xlsx") %>%
-  mutate(date = zoo::as.yearmon(my(date)))
+  mutate(date = zoo::as.yearmon(my(date)),
+         indicator = fct_relevel(indicator, c("Predicted Irrigation Consumptive Use (mm/month)", "Evapotranspiration (mm)",
+                                              "Rainfall (mm)", "Surface Temperature °C")))
+
+model_geography_list <- model_data %>% distinct(governorate, district)
+
+irrigation_boundaries <- model_data %>% 
+  filter(!is.na(mean_irrigation)) %>% 
+  distinct(district, mean_irrigation) 
 
 date_choices <- format(model_data$date)
 
 ##### admin boundaries 
 admin_boundary_path <-  "01_inputs/03_admin_boundary/"
 admin1_boundary  <-st_read(paste0(admin_boundary_path,"/irq_admbnda_adm1_cso_20190603.shp")) %>% ms_simplify(keep = .75)
-admin2_boundary  <-st_read(paste0(admin_boundary_path,"/irq_admbnda_adm2_cso_20190603.shp"))%>% ms_simplify(keep = .75)
+admin2_boundary  <-st_read(paste0(admin_boundary_path,"/irq_admbnda_adm2_cso_20190603.shp"))%>% left_join(irrigation_boundaries, by=join_by(ADM2_EN==district)) %>%  ms_simplify(keep = .75)
+admin2_irrigation <- admin2_boundary %>% filter(!is.na(mean_irrigation))
+
 # leaflet base map --------------------------------------------------------
+
 base_map <- leaflet::leaflet() %>% leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron) %>% 
   leaflet::addPolygons(data = admin1_boundary, color = "#58585A",
                        weight = 2, dashArray = "12", fillColor = "transparent") %>% 
   leaflet::addPolygons(data = admin2_boundary, color = "#58585A",
-                       #label = ~htmlEscape(ADM2_EN),
-                       #labelOptions = labelOptions(noHide = T, textOnly = TRUE, textsize = "9px"),
+                       label = ~htmlEscape(ADM2_EN),
+                       labelOptions = labelOptions(noHide = F, textOnly = T, textsize = "12px"),
                        weight = .5, dashArray = "12", fillColor = "transparent")
 
+irrigation_pal <- colorNumeric(palette = "Reds", domain = admin2_irrigation$mean_irrigation)
 
 model_base_map <- leaflet::leaflet() %>%
   leaflet::addPolygons(data = admin1_boundary, color = "black",
-                       weight = 3,  fillColor = "white") %>% 
-  leaflet::addPolygons(data = admin2_boundary, color = "black",
-                       weight = .5,  fillColor = "white")
+                       weight = 2,  fillColor = "white", opacity = 1) %>% 
+  leaflet::addPolygons(data = admin2_irrigation, stroke = TRUE, smoothFactor = 0.2, fillOpacity = 1,
+                       color = "black", weight = 2, fillColor = ~irrigation_pal(mean_irrigation),
+                       popup = paste(
+                         "District:", admin2_irrigation$ADM2_EN, "<br>",
+                         "2023 Mean Shortfall:", round(admin2_irrigation$mean_irrigation, 1))
+                       ) %>% 
+  addLegendNumeric(data = admin2_irrigation, orientation = c("horizontal"), width = 180, height = 8, pal = irrigation_pal, values = ~mean_irrigation, title = "2023 Mean Irrigation Shortfall", position = 'bottomright')
 
 # ui ---------------------------------------------------------------------
 ui <-fluidPage(
@@ -67,7 +87,9 @@ ui <-fluidPage(
     HTML('<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />'), includeCSS("style.css")),
   navbarPage(
     windowTitle = "IRAQ CLIMATE MONITORING DASHBOARD",
-    HTML('<a style="padding-left:10px;" class = "navbar-brand" href = "https://www.reach-initiative.org" target="_blank"><img src = "reach_logo.png" height = "50"><a style="padding-left:0px;" class = "navbar-brand" href = "https://www.actionagainsthunger.org" target="_blank"><img src = "aah_logo.png" height = "50"></a><span class="navbar-text" style="font-size: 16px; color: #FFFFFF"><strong>IRAQ CLIMATE MONITORING DASHBOARD</strong></span>'),
+    #HTML('<a style="padding-left:10px;" class = "navbar-brand" href = "https://www.reach-initiative.org" target="_blank"><img src = "reach_logo.png" height = "50"><a style="padding-left:0px;" class = "navbar-brand" href = "https://www.actionagainsthunger.org" target="_blank"><img src = "aah_logo.png" height = "50"></a><span class="navbar-text" style="font-size: 16px; color: #FFFFFF"><strong>IRAQ CLIMATE MONITORING DASHBOARD</strong></span>'),
+    #HTML('<a style="padding-left:10px;" class = "navbar-brand" </a><span class="navbar-text" style="font-size: 16px; color: #FFFFFF"><strong>IRAQ CLIMATE MONITORING DASHBOARD</strong></span>'),
+    HTML('<span class="navbar-text" style="font-size: 16px; color: #FFFFFF"><strong>IRAQ CLIMATE MONITORING DASHBOARD</strong></span>'),
     tabPanel("Introduction",
              mainPanel(width = 12,
                        br(),
@@ -114,15 +136,30 @@ ui <-fluidPage(
                            ))
                        ), # tag$ol
                        hr(),
-                       h4(strong("Limitation:")),
+                       h4(strong("Limitations:")),
                        p(style="text-align: justify; font-size: 14px;", 
-                         "Crop masking is currently not integrated into NDVI and NDWI calculations"),
+                         "The grid size for the Climate Indicators map is 20x20km. Note that any variation within that area is not visible in the dashboard",
+                         br(),
+                         "Crop masking is not currently integrated into NDVI and NDWI calculations. The use of crop masking has been shown to be associated with improved crop yield predictions.",
+                         br(),
+                         "Surface temperature is recorded via remote sensing. Surface temperatures should be noted are generally hotter than ambient or air temperatures",),
                        hr(),
                        h4(strong("Contact:"),tags$br(),
                           p("Cody Adelson",br(),
                             "Data Specialist",br(),
                             "Email:", tags$a(href="mailto:cody.adelson@impact-initiatives.org","cody.adelson@impact-initiatives.org"))
-                       )
+                       ),
+                       hr(
+                       id = "logo", class = "card", bottom = 15, right = 20, fixed=TRUE, draggable = FALSE, height = "auto",
+                       tags$a(href='https://www.reach-initiative.org', target = "_blank",
+                              tags$img(src="reach_logo.png", height='40')),
+                       id = "logo", class = "card", bottom = 15, right = 20, fixed=TRUE, draggable = FALSE, height = "auto",
+                       tags$a(href='https://www.usaid.gov/iraq/humanitarian-assistance', target = "_blank",
+                              tags$img(src="usaid_logo.png", height='80')),
+                       id = "logo", class = "card", bottom = 15, right = 20, fixed=TRUE, draggable = FALSE, height = "auto",
+                       tags$a(href='https://www.actionagainsthunger.org', target = "_blank",
+                              tags$img(src="aah_logo2.png", height='50'))),
+                       # End table 2
              ) # end main panel 0
     ), # end tab panel 0 
     tabPanel("Climate Indicators",
@@ -138,13 +175,6 @@ ui <-fluidPage(
                                             multiple = F,
                                             options = pickerOptions(title = "Select", actionsBox = TRUE, liveSearch = TRUE)
                        ), style="display:inline-block"),
-                       tags$div(pickerInput("select_month",
-                                            label = "Select Month:",
-                                            choices = unique(sub(".*[_]([^.]+)[_].*", "\\1", names(climate_data)[-ncol(climate_data)])),
-                                            selected = NULL,
-                                            multiple = F,
-                                            options = pickerOptions(title = "Select", actionsBox = TRUE, liveSearch = TRUE)
-                       ), style="display:inline-block"),
                        tags$div(pickerInput("select_year",
                                             label = "Select Year:",
                                             choices = unique(sub(".*_", "", names(climate_data)[-ncol(climate_data)])),
@@ -152,9 +182,19 @@ ui <-fluidPage(
                                             multiple = F,
                                             options = pickerOptions(title = "Select", actionsBox = TRUE, liveSearch = TRUE)
                        ), style="display:inline-block"),
+                       tags$div(pickerInput("select_month",
+                                            label = "Select Month:",
+                                            choices = unique(sub(".*[_]([^.]+)[_].*", "\\1", names(climate_data)[-ncol(climate_data)])),
+                                            selected = NULL,
+                                            multiple = F,
+                                            options = pickerOptions(title = "Select", actionsBox = TRUE, liveSearch = TRUE)
+                       ), style="display:inline-block"),
+  
                        actionButton("run", "Show result"),
                        div(class = "outer", tags$style(type = "text/css", ".outer {position: fixed; top: 200px; left: 0; right: 0; bottom: 0; overflow: hidden; padding: 0}"),
-                           leafglOutput("map",width ="100%", height = "100%"))
+                           leafglOutput("map",width ="100%", height = "100%")),
+                       
+                       
              ) # end main panel  
     ), # tab 1 end 
     tabPanel("Surface Water",
@@ -167,10 +207,11 @@ ui <-fluidPage(
              sidebarPanel(
              #mainPanel(
                width = 5,
+               tags$style(type='text/css', ".selectize-dropdown-content {max-height: 100px; }"), 
                tags$div(pickerInput("select_district",
                                     label = "Select District:",
-                                    choices = unique(model_data$district),
-                                    selected = "Al-Mosul",
+                                    choices = lapply(split(model_geography_list$district, model_geography_list$governorate), as.list),
+                                    selected = "Al-Baaj",
                                     width = 250,
                                     multiple = F,
                                     options = pickerOptions(title = "Select", actionsBox = TRUE, liveSearch = TRUE)),
@@ -181,16 +222,15 @@ ui <-fluidPage(
                                     label = "Select Date Range:",
                                     width = 250,
                                     choices = unique(model_data$date),
-                                    selected = date_choices[c(1045, length(date_choices))]),
+                                    selected = date_choices[c(1876, length(date_choices))]),
                                     style="display:inline-block"),
+               tags$div(downloadButton("download_data", "Download Data")),
                leafletOutput("map_model", width = "105%", height =  500)),
-               #mainPanel(plotOutput("plot", hover = hoverOpts(id = "plot_hover"), width = "100%", height = 600),
              mainPanel(width = 7,
                        plotlyOutput("plot",  height = 575)
-             #em("The water scarcity prediction model was developed independently by The University of Mosul")
-               
+        
              ) # end mainpanel 2   
-    ), # End table 2
+    ),
      # end main panel  
     # End table 3
   ) # end navar page
@@ -217,6 +257,10 @@ server <- function(input, output,session){
       rename(value2 = !!selected_col())
   })
   
+  indicator_selection_map <- eventReactive(input$run, {input$select_climate_indicator})
+  month_selection_map <- eventReactive(input$run, {input$select_month})
+  year_selection_map <- eventReactive(input$run, {input$select_year})
+
   model_data_filtered <- reactive({ 
     model_data %>%
       filter(district == input$select_district,
@@ -277,7 +321,7 @@ server <- function(input, output,session){
     if(input$select_climate_indicator %in% c("Temperature anomaly")) {
       add_legend_df <- list(
         color = c( "#367BB3", "#729DC6", "#A1BCD7", "#FFFFE7", "#eac435", "#f3b700", "#dd7230"),
-        label = c("Less than -2°C (cooler conditions)","-2 to -1","-1 to -.5", "-.5 to .5 (normal)",".5 to 1","1 to 2","Greater than 2°C (warmer conditions)"))
+        label = c("Less than -2 (cooler conditions)","-2 to -1","-1 to -.5", "-.5 to .5 (normal)",".5 to 1","1 to 2","Greater than 2 (warmer conditions)"))
       return(add_legend_df)}
     if(input$select_climate_indicator %in% c("NDWI anomaly","NDVI anomaly")) {
       add_legend_df <- list(
@@ -302,11 +346,12 @@ server <- function(input, output,session){
                             fillOpacity = 1,
                             color =   ~clr()(grid_with_df1()$value2),
                             stroke = F,
-                            popup = paste("Date:", input$select_month, input$select_year, "<br>",
-                                          #"Governorate:", admin1_boundary$ADM1_EN, "<br>",
-                                          #"District:", admin2_boundary$ADM2_EN, "<br>",
-                                          "Indicator:", input$select_climate_indicator, "<br>",
-                                          "Value:",  grid_with_df1()$value2))  %>%
+                           popup = paste(
+                             "Date:", month_selection_map(), year_selection_map(), "<br>",
+                             #"Governorate:", admin1_boundary$ADM1_EN, "<br>",
+                             #"District:", admin2_boundary$ADM2_EN, "<br>",
+                             "Indicator:", indicator_selection_map(), "<br>",
+                             "Value:",  grid_with_df1()$value2))  %>%
       setView(lat = 33.312805,lng = 44.361488,zoom = 6) %>% 
       addMiniMap() %>% 
       addLegend(
@@ -316,6 +361,12 @@ server <- function(input, output,session){
         title = add_legend_df()$unit) 
   }) 
   
+
+irrigation_label <- reactive({
+  admin2_irrigation %>% 
+    filter(ADM2_EN == input$select_district)
+    })
+  
   output$map_model <- renderLeaflet({
     
     district_boundary <- admin2_boundary %>%
@@ -323,17 +374,34 @@ server <- function(input, output,session){
     
     model_base_map %>% 
       setView(lat = 32.912805,lng = 43.811488,zoom = 6) %>% 
-      addPolygons(data = district_boundary, color = "red",
-                  weight = 2, fillColor = "red")
+      addPolygons(data = district_boundary, color = "blue",
+                  weight = 5, fillColor = "transparent",
+                  popup = paste(
+                    "District:", irrigation_label()$ADM2_EN, "<br>",
+                    "2023 Mean Shortfall:", irrigation_label()$mean_irrigation)
+      )
   })
   
-  #fig_title <- 'Water Scarcity Indicators — <span style = "color:#2057a7">Historical</span> and <span style = "color:#e07653">Model-Forecasted</span> Figures,'
+  model_data_download <- reactive({
+    model_data_filtered() %>%
+      select(governorate, district, date, type, indicator, value)})
+  
+  
+  # Downloadable csv of selected dataset ----
+  output$download_data <- downloadHandler(
+    filename = function() {
+      paste(input$select_district, ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(model_data_download(), file, row.names = FALSE)
+    }
+  )
+  
   fig_title <- 'Water Scarcity Indicators — <span style = "color:#2057a7"><b>Historical</b></span> and <span style = "color:#e07653"><b>Model-Forecasted</b></span> Figures,'
   
   output$plot <- renderPlotly({
     plot_assigned <- 
-      #ggplot(model_data_filtered(), aes(x = date, y = value, group = indicator, color = type_color, fill = type_color, text= irrigation_consumptive_use)) + 
-      ggplot(model_data_filtered(), aes(x = date, y = value, group = indicator, color = type_color, fill = type_color, text = paste0("Date: ", date, "\n", "Value: ", value, "\n", irrigation_consumptive_use))) + 
+      ggplot(model_data_filtered(), aes(x = date, y = value, group = indicator, color = type_color, fill = type_color, text = paste0("Date: ", date, "\n", value_label))) + 
       geom_area(alpha = .5, aes(x=date, y=ifelse(type %in% c("forecast", "data"), value, NA_real_)), fill = denim_light)+
       geom_area(alpha = .5, aes(x=date, y=ifelse(type=="forecast", value, NA_real_)), fill = burnt_sienna_light)+
       geom_line() +
@@ -342,9 +410,8 @@ server <- function(input, output,session){
                  size = .75,
                  stroke= .75) +
       facet_wrap(~indicator, ncol = 1, scales = "free_y")+
-      labs(#title = paste(fig_title, input$select_district),
-           #caption = "The water scarcity prediction model was developed by University of Mosul and is not affiliated with REACH",
-           x = NULL, y = NULL) +
+      facet_wrap(~indicator, ncol = 1, scales = "free_y")+
+      labs(x = NULL, y = NULL) +
       si_style_ygrid()+
       scale_fill_identity()+
       scale_color_identity()+

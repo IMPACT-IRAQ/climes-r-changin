@@ -127,7 +127,7 @@ for ( i in all_tier){
   grid_filter <- grid[get(i),]
   # 1000o is working 
   evapotranspiration_final[[i]] <- evapotranspiration_z_pre_processed %>%
-    ee_extract_tidy(y = grid_filter,sf = T,stat = "mean",scale = 250,via = "drive")
+    ee_extract_tidy(y = grid_filter,sf = T,stat = "mean",scale = 500,via = "drive")
 }
 
 

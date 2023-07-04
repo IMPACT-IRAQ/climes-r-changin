@@ -21,7 +21,8 @@ CHIRPS <- ee$ImageCollection("UCSB-CHG/CHIRPS/DAILY")$select("precipitation")$
 chirps_tidy<- as_tidyee(CHIRPS) # make tidygee object
 
 current_year_sum <- chirps_tidy %>% 
-  filter(year >= 2022) %>% 
+  filter(year > 2022,
+         month > 1) %>% 
   group_by(year, month) %>% 
   summarise(stat = "sum")
 
@@ -47,4 +48,4 @@ precipitation_defic_bind <- precipitation_defic_bind %>% mutate(
   month = lubridate::month(date,label = T,abbr = F)
 )
 
-write.csv(precipitation_defic_bind,"gee_data/20kmsqdata/precipitation.csv")
+write.csv(precipitation_defic_bind,"gee_data_raw/20kmsqdata/precipitation_feb_may_2023.csv")

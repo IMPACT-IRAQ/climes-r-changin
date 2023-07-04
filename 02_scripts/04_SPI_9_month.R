@@ -27,7 +27,8 @@ chirps_tidy <- as_tidyee(chirps)
 spi_image_collection <- ee_chirps_spi(chirps_tidy,window = 9,window_unit = "month",moi = c(1:12))
 
 spi_image_collection_processed <- spi_image_collection %>% 
-  filter(year >= previous_year) %>% 
+  filter(year == 2023,
+         month > 1) %>% 
   select("precipitation_sum_9_month_SPI")
 
 spi_final <- list()
@@ -51,7 +52,7 @@ spi_bind <- spi_bind %>% mutate(
   parameter = case_when(
     parameter == "precipitation_sum_9_month_SPI" ~ "9-months SPI"))
 
-write.csv(spi_bind,"gee_data/20kmsqdata/nine_month_spi.csv")
+write.csv(spi_bind,"gee_data_raw/20kmsqdata/nine_month_spi_feb_may_2023.csv")
 
 
                                       

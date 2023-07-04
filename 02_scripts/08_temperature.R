@@ -35,50 +35,13 @@ modis_temperature <- modisIC$
 modis_temperature_tidy <- as_tidyee(modis_temperature) #as tidy object
 ############################ ####Monthly TEMP MEAN ##########################
 temp_recent_monthly <- modis_temperature_tidy %>%                                         # RECENT 
-  filter(year>=2022) %>% 
+  filter(year>=2023,
+         month == 3) %>% 
   group_by(year,month) %>%  
   summarise(stat="mean") %>% 
   dplyr::select(temp="LST_Day_1km_mean")
 
 ####################################################################
-
-#Why rename this?
-# temp_recent_renamed <- temp_recent_monthly |> 
-#   dplyr::select(temp="LST_Day_1km_mean")
-
-
-# temp_recent_and_baseline<- inner_join(x = temp_recent_renamed,
-#                                       y = monthly_baseline,
-#                                       by = "month")
-
-# temp_recent_baseline_imageCol <- temp_recent_and_baseline |> 
-#   as_ee()
-# 
-# # Caclulate the zscore, temp is recent year temperature, lst mean is historical. Returning three bands.
-# temp_zscore<- temp_recent_baseline_imageCol$map(
-#   function(img){
-#     zscore<- img$expression(
-#       "float((temp-LST_Day_1km_mean)/(LST_Day_1km_sd))",
-#       opt_map= list(temp= img$select("temp"),
-#                     LST_Day_1km_mean= img$select("LST_Day_1km_mean"),
-#                     LST_Day_1km_sd= img$select("LST_Day_1km_sd")
-#       )
-#     )$rename("temp_z_score")
-#     img$select("temp","LST_Day_1km_mean")$addBands(zscore)
-#   }
-#   
-# ) 
-# temp_z <- as_tidyee(temp_zscore)
-
-#
-# temp_z_pre_processed <- temp_z |> 
-#   filter(year>=2022) |> 
-#   dplyr::select("temp_z_score")
-
-# leaflet::leaflet(grid ) |>
-#   leaflet::addTiles() |> 
-#   leaflet::addPolygons()
-
 
 temp_final <- list()
 
@@ -107,4 +70,4 @@ temp_final_bind <- temp_final_bind %>% mutate(
     parameter == "temp" ~ "Surface Temperature")
 )
 
-write.csv(temp_final_bind,"gee_data/20kmsqdata/temperature.csv")
+write.csv(temp_final_bind,"gee_data_raw/20kmsqdata/temperature_march_2023.csv")

@@ -14,7 +14,9 @@ ee_Initialize(user = "cody", drive = T, gcs = T)
 # ndvi --------------------------------------------------------------------
 
 ############################## READ modis data ###########################
-modis_link <- "MODIS/006/MOD13Q1"
+#modis_link <- "MODIS/006/MOD13Q1"
+#previous modis link stopped updating in february 2023
+modis_link <- "MODIS/061/MOD13Q1"
 modisIC <- ee$ImageCollection(modis_link)
 
 modis_ndvi <- modisIC$
@@ -69,7 +71,8 @@ ndvi_z <- as_tidyee(ndvi_zscore)
 
 #
 ndvi_z_pre_processed <- ndvi_z |> 
-  filter(year>=2022) |> 
+  filter(year>2022,
+         month>2) |> 
   dplyr::select("NDVI_z_score")
 
 # leaflet::leaflet(grid ) |>
@@ -99,6 +102,6 @@ ndvi_final_bind <- ndvi_final_bind %>% mutate(
   parameter = case_when(
     parameter == "NDVI_z_score" ~ "NDVI anomaly"))
 
-write.csv(ndvi_final_bind,"gee_data/20kmsqdata/NDVI_Z_value.csv")
+write.csv(ndvi_final_bind,"gee_data_raw/20kmsqdata/NDVI_Z_value_march_may_2023.csv")
 
 

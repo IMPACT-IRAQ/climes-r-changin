@@ -41,7 +41,7 @@ monthly_baseline <- modis_temperature_tidy |>                                   
   summarise(stat=list("mean","sd"))
 
 temp_recent_monthly <- modis_temperature_tidy |>                                        # RECENT 
-  filter(year %in% c(2016:2023)) |> 
+  filter(year %in% c(2023)) |> 
   group_by(year,month) |> 
   summarise(stat="mean")
 
@@ -77,10 +77,11 @@ temp_z <- as_tidyee(temp_zscore)
 
 #
 temp_z_pre_processed <- temp_z |> 
-  filter(year>=2022) |> 
+  filter(year>=2023,
+         month==3) |> 
   dplyr::select("temp_z_score")
 
-spi_final <- list()
+temp_final <- list()
 
 first_tier<-1:10000 
 second_tier <- 10001:20000
@@ -104,4 +105,4 @@ temp_final_bind <- temp_final_bind %>% mutate(
   parameter = case_when(
     parameter == "temp_z_score" ~ "Temperature anomaly"))
 
-write.csv(temp_final_bind,"gee_data/20kmsqdata/temperature_Z_value.csv")
+write.csv(temp_final_bind,"gee_data_raw/20kmsqdata/temperature_Z_value_march_2023.csv")

@@ -1,3 +1,6 @@
+# Note - June 25 2023 - currently an issue with the MODIS data processing, data since
+# February 2023 not available https://lpdaac.usgs.gov/products/mod13q1v006/
+
 rm(list = ls())
 
 library(reticulate)
@@ -14,6 +17,8 @@ ee_Initialize(user = "cody", drive = T, gcs = T)
 # ndwi --------------------------------------------------------------------
 ############################## READ modis data ###########################
 modis_link <- "MODIS/MOD09GA_006_NDWI"
+#previous modis link stopped updating in february 2023
+modis_link <- "MODIS/MOD09GA_061_NDWI"
 modisIC <- ee$ImageCollection(modis_link)
 
 modis_ndWi <- modisIC$
@@ -35,7 +40,7 @@ monthly_baseline <- modis_ndWi_tidy |>                                          
   summarise(stat=list("mean","sd"))
 
 ndWi_recent_monthly <- modis_ndWi_tidy |>                                        # RECENT 
-  filter(year %in% c(2018:2023)) |> 
+  filter(year %in% c(2021:2023)) |> 
   group_by(year, month) |> 
   summarise(stat="mean")
 ####################################################################
@@ -66,8 +71,7 @@ ndWi_zscore<- ndWi_recent_baseline_imageCol$map(
 ndWi_z <- as_tidyee(ndWi_zscore)
 
 ndWi_z_pre_processed <- ndWi_z |> 
-  filter(year=="2022",
-         month>=10) |> 
+  filter(year=="2023") |> 
   dplyr::select("NDWI_z_score")
 
 ndWi_final <- list()
@@ -102,7 +106,6 @@ all_tier <- c("first_tier","second_tier","third_tier")
 for ( i in all_tier){
   
   grid_filter <- grid[get(i),]
-  # 1000o is working 
   ndWi_final[[i]] <- ndWi_z_pre_processed %>%  
     ee_extract_tidy(y = grid_filter,sf = T,stat = "mean",scale = 250,via = "drive")
 }

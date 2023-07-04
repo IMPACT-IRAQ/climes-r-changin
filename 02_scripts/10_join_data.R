@@ -18,10 +18,18 @@ dates_2023<- rev(as.character(format(seq(my("January 2023"), by ="month", length
 
 dates_order<-c("Yearly Average 2023", dates_2023, "Yearly Average 2022", dates_2022)
 
+### Test
+temp <- read_csv("gee_data_raw/20kmsqdata/temperature.csv")
+temp <- read_csv("gee_data_raw/20kmsqdata/temperature_Z_value.csv")
+temp <- read_csv("gee_data_raw/20kmsqdata/temperature_march_2023.csv")
+temp <- read_csv("gee_data_raw/20kmsqdata/temperature_Z_value_march_2023.csv")
+temp <- read_csv("gee_data_raw/20kmsqdata/precipitation.csv")
+
 indicator_files <- list.files("gee_data_raw/20kmsqdata/", "*.csv", full.names = TRUE)
 climate_data <- 
-  map_dfr(.x = indicator_files, .f = ~read_csv(.x), show_col_types = FALSE) %>% 
-  select(-...1, -date) %>% 
+  map_dfr(.x = indicator_files, .f = ~read.csv(.x), col_types = list(date = col_character())) %>% 
+  #select(-...1, -date) %>% 
+  select(-date) %>% 
   mutate(value = round(value, 3),
          parameter = case_when(
            parameter == "temp" ~ "Surface Temperature",
@@ -42,17 +50,6 @@ climate_data_bind <- bind_rows(climate_data, yearly_average) %>%
   arrange(rank) %>%
   select(-rank) %>% 
   distinct() 
-
-# climate_data_bind %>% filter(parameter == "Evaporation anomaly") %>% write_feather("05_outputs/processed_indicators/evaporation_Z_value")
-# climate_data_bind %>% filter(parameter == "NDVI anomaly") %>% write_feather("05_outputs/processed_indicators/NDVI_Z_value")
-# climate_data_bind %>% filter(parameter == "NDWI anomaly") %>% write_feather("05_outputs/processed_indicators/NDWI_Z_value")
-# climate_data_bind %>% filter(parameter == "9-months SPI") %>% write_feather("05_outputs/processed_indicators/nine_month_spi")
-# climate_data_bind %>% filter(parameter == "Precipitation") %>% write_feather("05_outputs/processed_indicators/precipitation")
-# climate_data_bind %>% filter(parameter == "Precipitation deficit") %>% write_feather("05_outputs/processed_indicators/precipitation_deficit")
-# climate_data_bind %>% filter(parameter == "Surface Temperature") %>% write_feather("05_outputs/processed_indicators/temperature")
-# climate_data_bind %>% filter(parameter == "Temperature anomaly") %>% write_feather("05_outputs/processed_indicators/temperature_Z_value")
-# climate_data_bind %>% filter(parameter == "3-months SPI") %>% write_feather("05_outputs/processed_indicators/three_month_spi")
-# climate_data_bind %>% filter(parameter == "12-months SPI") %>% write_feather("05_outputs/processed_indicators/twelve_month_spi")
 
 climate_data_bind_wide <- climate_data_bind %>% 
   mutate(n=row_number()) %>% 

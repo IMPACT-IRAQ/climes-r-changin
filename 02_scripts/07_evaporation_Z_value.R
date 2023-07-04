@@ -42,8 +42,9 @@ monthly_baseline <- modis_evapotranspiration_tidy |>                            
   summarise(stat=list("mean", "sd"))
 
 evapotranspiration_recent_monthly <- modis_evapotranspiration_tidy |>                                        # RECENT 
-  filter(year %in% c(2022:2023)) |> 
-  group_by(year,month) |> 
+  filter(year %in% c(2023),
+         month > 1) |> 
+  group_by(year, month) |> 
   summarise(stat="mean")
 
 evapotranspiration_recent_renamed <- evapotranspiration_recent_monthly |> 
@@ -73,7 +74,8 @@ evapotranspiration_zscore<- evapotranspiration_recent_baseline_imageCol$map(
 evapotranspiration_z <- as_tidyee(evapotranspiration_zscore)
 
 evapotranspiration_z_pre_processed <- evapotranspiration_z |> 
-  filter(year>=2022) |> 
+  filter(year>=2022,
+         month == 2) |> 
   dplyr::select("evt_z_score") 
 
 rm(modis_evapotranspiration_tidy, monthly_baseline)

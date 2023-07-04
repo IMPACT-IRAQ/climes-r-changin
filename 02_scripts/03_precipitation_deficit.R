@@ -29,8 +29,10 @@ historical_mean <- chirps_tidy %>%
 
 historical_mean_renamed <- historical_mean %>% select (mean_his_precipitation = "precipitation_mean")
 
-current_year_mean <- chirps_tidy %>% filter(
-  year %in% c(2022:2023)) %>% 
+current_year_mean <- chirps_tidy %>% 
+  filter(
+    year %in% c(2023),
+    month > 1) %>% 
   group_by(month, year) %>% 
   summarise(stat = "mean")
 
@@ -85,9 +87,9 @@ precipitation_defic_bind <- precipitation_defic_bind %>%
       parameter == "precipitation_defict" ~ "Precipitation deficit",
       TRUE ~ parameter))
 
-write.csv(precipitation_defic_bind,"gee_data/20kmsqdata/precipitation_deficit.csv")
+write.csv(precipitation_defic_bind,"gee_data_raw/20kmsqdata/precipitation_deficit_feb_may_2023.csv")
 
-df %>% 
-  mutate(value_new = case_when(
-    value %in% percent_cont | value %in% percent_cat ~ paste(value, sign),
-    TRUE ~ value)
+# df %>% 
+#   mutate(value_new = case_when(
+#     value %in% percent_cont | value %in% percent_cat ~ paste(value, sign),
+#     TRUE ~ value)
